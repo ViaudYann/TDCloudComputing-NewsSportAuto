@@ -1,17 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import {type News } from "@/lib/news";
-import { Sports } from "@/lib/sports";
+import Link from "next/link";
 import AffichageNews from "@/components/AffichageNews";
+import { Sports } from "@/lib/sports";
+import type { NewsEnregistree } from "@/lib/news";
 
 export default function FormulaireNews() {
-  const [sportChoisi, setSportChoisi] = useState<string | null>(null);
+  const [sportChoisi, setSportChoisi] = useState("");
   const [chargement, setChargement] = useState(false);
   const [erreur, setErreur] = useState("");
-  const [news, setNews] = useState<News | null>(null);
+  const [news, setNews] = useState<NewsEnregistree | null>(null);
 
-  // Compréhension : les id des sports dont la case est cochée
   const sportsChoisis = Sports.filter((s) => s.id === sportChoisi).map((s) => s.id);
   const formulaireValide = sportsChoisis.length > 0;
 
@@ -34,7 +34,8 @@ export default function FormulaireNews() {
         return;
       }
 
-      setNews(donnees[0] ?? null);
+      setNews(donnees);
+      setSportChoisi("");
     } catch {
       setErreur("Impossible de contacter le serveur.");
     } finally {
@@ -46,20 +47,24 @@ export default function FormulaireNews() {
     <div className="mt-6">
       <form onSubmit={envoyer} className="flex flex-col gap-4">
         <fieldset className="rounded border p-4">
-  <legend className="font-medium">Discipline</legend>
-  {Sports.map((s) => (
-    <label key={s.id} className="flex items-center gap-2">
-      <input
-        type="radio"
-        name="sport"
-        value={s.id}
-        checked={sportChoisi === s.id}
-        onChange={(e) => setSportChoisi(e.target.value)}
-      />
-      {s.label}
-    </label>
-  ))}
-</fieldset>
+          <legend className="font-medium">Discipline</legend>
+          {Sports.map((s) => (
+            <label key={s.id} className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="sport"
+                value={s.id}
+                checked={sportChoisi === s.id}
+                onChange={(e) => setSportChoisi(e.target.value)}
+              />
+              {s.label}
+            </label>
+          ))}
+        </fieldset>
+
+        <p className={`text-sm ${formulaireValide ? "text-gray-500" : "text-red-600"}`}>
+          {formulaireValide ? "1 discipline sélectionnée" : "Aucune discipline sélectionnée"}
+        </p>
 
         <button
           type="submit"
@@ -76,7 +81,17 @@ export default function FormulaireNews() {
         </p>
       )}
 
-      {news && <AffichageNews news={news} />}
+      {news && (
+        <>
+          <p className="mt-6 rounded border border-green-300 bg-green-50 p-3 text-green-800">
+            News enregistrée.{" "}
+            <Link href={`/news/${news.id}`} className="font-medium underline">
+              Retrouver cette news
+            </Link>
+          </p>
+          <AffichageNews news={news} />
+        </>
+      )}
     </div>
   );
 }

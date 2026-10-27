@@ -5,3 +5,8 @@ export type News = {
   statut: "en_cours" | "succes" | "erreur";
   message_erreur: string | null;
 };
+
+export type NewsEnregistree = News & {
+  id: string;
+  created_at: string;
+};
