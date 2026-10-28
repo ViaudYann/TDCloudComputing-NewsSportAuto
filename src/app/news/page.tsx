@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { creerClientSupabase } from "@/lib/supabase";
 import { Sports } from "@/lib/sports";
+import { creerClientServeur } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +11,7 @@ const LIBELLE_STATUT = {
 } as const;
 
 export default async function ListeNews() {
-  const supabase = creerClientSupabase();
+  const supabase = await creerClientServeur();
   const { data: news, error } = await supabase
     .from("news_sport_meca")
     .select("id, sport_meca, date_creation, statut")

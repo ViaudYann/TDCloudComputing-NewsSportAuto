@@ -1,11 +1,25 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { Sports } from "@/lib/sports";
 import { genererateNews } from "@/lib/generate-news";
 import { ErreurIA, messageErreurIA } from "@/lib/ai";
-import { creerClientSupabase } from "@/lib/supabase";
+import { creerClientServeur } from "@/lib/supabase/server";
 
 export const maxDuration = 60; // laisse le temps à l'IA de chercher sur le web
 
 export async function POST(request: Request) {
+  // 0. Vérification de la session
+  const supabase = await creerClientServeur();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return Response.json(
+      { erreur: "Votre session a expiré. Reconnectez-vous pour demander des news." },
+      { status: 401 }
+    );
+  }
+
   const body = await request.json();
   const sport =
     Array.isArray(body.sports) && typeof body.sports[0] === "string" ? body.sports[0] : "";
@@ -19,13 +33,12 @@ export async function POST(request: Request) {
   try {
     news = await genererateNews(sport);
   } catch (erreur) {
-    await enregistrerEchec(sport, erreur);
+    await enregistrerEchec(supabase, sport, erreur);
     return reponseErreurIA(erreur);
   }
 
-  // 2. Enregistrement de la news dans la base de données
+  // 2. Enregistrement de la news, au nom de l'utilisateur connecté
   try {
-    const supabase = creerClientSupabase();
     const { data, error } = await supabase
       .from("news_sport_meca")
       .insert({
@@ -33,7 +46,7 @@ export async function POST(request: Request) {
         synthese: news.synthese,
         statut: "succes",
       })
-      .select("sport_meca, synthese, date_creation, statut, message_erreur")
+      .select("id, sport_meca, synthese, date_creation, statut, message_erreur")
       .single();
 
     if (error) throw error;
@@ -49,17 +62,14 @@ export async function POST(request: Request) {
 }
 
 // Garde une trace en base des générations qui ont échoué
-async function enregistrerEchec(sport: string, erreur: unknown) {
-  try {
-    const supabase = creerClientSupabase();
-    await supabase.from("news_sport_meca").insert({
-      sport_meca: sport,
-      statut: "erreur",
-      message_erreur: messageErreurIA(erreur),
-    });
-  } catch (e) {
-    console.error("Impossible d'enregistrer l'échec :", e);
-  }
+async function enregistrerEchec(supabase: SupabaseClient, sport: string, erreur: unknown) {
+  const { error } = await supabase.from("news_sport_meca").insert({
+    sport_meca: sport,
+    statut: "erreur",
+    message_erreur: messageErreurIA(erreur),
+  });
+
+  if (error) console.error("Impossible d'enregistrer l'échec :", error);
 }
 
 function reponseErreurIA(erreur: unknown) {

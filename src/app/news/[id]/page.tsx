@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import AffichageNews from "@/components/AffichageNews";
 import type { NewsEnregistree } from "@/lib/news";
-import { creerClientSupabase } from "@/lib/supabase";
+import { creerClientServeur } from "@/lib/supabase/server";
 
 export default async function DetailNews({
   params,
@@ -11,7 +11,7 @@ export default async function DetailNews({
 }) {
   const { id } = await params;
 
-  const supabase = creerClientSupabase();
+  const supabase = await creerClientServeur();
   const { data: news } = await supabase
     .from("news_sport_meca")
     .select("id, sport_meca, synthese, date_creation, statut, message_erreur")
