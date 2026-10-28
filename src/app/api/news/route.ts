@@ -1,11 +1,8 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { Sports } from "@/lib/sports";
-import { genererateNews } from "@/lib/generate-news";
-import { ErreurIA, messageErreurIA } from "@/lib/ai";
 import { limiteurGenerations } from "@/lib/limitation";
+import { publierGeneration } from "@/lib/qstash";
+import { creerClientAdmin } from "@/lib/supabase/admin";
 import { creerClientServeur } from "@/lib/supabase/server";
-
-export const maxDuration = 60; // laisse le temps à l'IA de chercher sur le web
 
 export async function POST(request: Request) {
   // 0. Vérification de la session
@@ -51,80 +48,42 @@ export async function POST(request: Request) {
       );
     }
   } catch (erreur) {
-    // Si Redis est indisponible, on laisse passer la requête plutôt que de bloquer
-    // tous les utilisateurs : c'est un choix « fail open ».
     console.error("Limitation de débit indisponible :", erreur);
   }
 
-  // 3. Génération de la news par le modèle d'IA
-  let news;
-  try {
-    news = await genererateNews(sport);
-  } catch (erreur) {
-    await enregistrerEchec(supabase, sport, erreur);
-    return reponseErreurIA(erreur);
-  }
+  // 3. Enregistrement de la demande, avec le statut « en cours »
+  const { data: news, error } = await supabase
+    .from("news_sport_meca")
+    .insert({ sport_meca: sport })
+    .select("id, sport_meca, synthese, date_creation, statut, message_erreur")
+    .single();
 
-  // 4. Enregistrement de la news, au nom de l'utilisateur connecté
-  try {
-    const { data, error } = await supabase
-      .from("news_sport_meca")
-      .insert({
-        sport_meca: news.sport_meca,
-        synthese: news.synthese,
-        statut: "succes",
-      })
-      .select("id, sport_meca, synthese, date_creation, statut, message_erreur")
-      .single();
-
-    if (error) throw error;
-
-    return Response.json(data, { status: 201, headers: enTetesQuota });
-  } catch (erreur) {
-    console.error("Erreur lors de l'enregistrement de la news :", erreur);
+  if (error || !news) {
+    console.error("Erreur lors de l'enregistrement de la demande :", error);
     return Response.json(
-      { erreur: "La news a été générée mais n'a pas pu être enregistrée. Réessayez plus tard." },
+      { erreur: "La demande n'a pas pu être enregistrée. Réessayez plus tard." },
       { status: 500 }
     );
   }
-}
 
-// Garde une trace en base des générations qui ont échoué
-async function enregistrerEchec(supabase: SupabaseClient, sport: string, erreur: unknown) {
-  const { error } = await supabase.from("news_sport_meca").insert({
-    sport_meca: sport,
-    statut: "erreur",
-    message_erreur: messageErreurIA(erreur),
-  });
+  // 4. Publication du message de génération dans la file
+  try {
+    await publierGeneration(news.id);
+  } catch (erreur) {
+    console.error("Erreur lors de la publication du message :", erreur);
 
-  if (error) console.error("Impossible d'enregistrer l'échec :", error);
-}
+    // Traitement système, sans utilisateur : usage légitime du client administrateur
+    await creerClientAdmin()
+      .from("news_sport_meca")
+      .update({ statut: "erreur", message_erreur: "La génération n'a pas pu être lancée." })
+      .eq("id", news.id);
 
-function reponseErreurIA(erreur: unknown) {
-  if (erreur instanceof ErreurIA && erreur.status === 429) {
     return Response.json(
-      { erreur: "Le quota du service d'IA est atteint. Réessayez dans quelques instants." },
-      { status: 429 }
+      { erreur: "La génération n'a pas pu être lancée. Réessayez plus tard." },
+      { status: 503 }
     );
   }
 
-  if (erreur instanceof ErreurIA && (erreur.status === 401 || erreur.status === 403)) {
-    return Response.json(
-      { erreur: "La clé du service d'IA est invalide. Vérifiez la configuration." },
-      { status: 502 }
-    );
-  }
-
-  if (erreur instanceof Error && erreur.name === "TimeoutError") {
-    return Response.json(
-      { erreur: "Le service d'IA met trop de temps à répondre. Réessayez plus tard." },
-      { status: 504 }
-    );
-  }
-
-  console.error(erreur);
-  return Response.json(
-    { erreur: "La génération de la news a échoué. Réessayez plus tard." },
-    { status: 502 }
-  );
+  // 5. Réponse immédiate : la demande est acceptée, le traitement suivra
+  return Response.json(news, { status: 202, headers: enTetesQuota });
 }

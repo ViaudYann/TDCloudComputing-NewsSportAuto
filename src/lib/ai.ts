@@ -68,8 +68,8 @@ export function messageErreurIA(erreur: unknown): string {
     return "Le service d'IA est momentanément saturé.";
   }
 
-  if (erreur instanceof ErreurIA && (erreur.status === 401 || erreur.status === 403)) {
-    return "La clé du service d'IA est invalide ou n'a pas les droits nécessaires.";
+  if (erreur instanceof ErreurIA && erreur.status === 413) {
+    return "Le texte est trop volumineux pour le service d'IA.";
   }
 
   if (erreur instanceof Error && erreur.name === "TimeoutError") {

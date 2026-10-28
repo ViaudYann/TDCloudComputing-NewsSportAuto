@@ -45,7 +45,20 @@ export default async function ListeNews() {
                 href={`/news/${n.id}`}
                 className="block rounded border p-4 hover:bg-gray-50"
               >
-                <p className="font-medium">{label}</p>
+                <p className="font-medium">
+  {label}
+  {n.statut !== "succes" && (
+    <span
+      className={`ml-2 rounded px-2 py-0.5 text-xs ${
+        n.statut === "en_cours"
+          ? "bg-yellow-100 text-yellow-800"
+          : "bg-red-100 text-red-800"
+      }`}
+    >
+      {n.statut === "en_cours" ? "En cours de génération" : "Échec"}
+    </span>
+  )}
+</p>
                 <p className="text-sm text-gray-500">
                   {new Date(n.date_creation).toLocaleDateString("fr-FR")}
                   {statut && <span className={`ml-2 ${statut.couleur}`}>{statut.texte}</span>}

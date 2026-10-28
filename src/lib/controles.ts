@@ -2,6 +2,7 @@ import "server-only";
 import type { Controle } from "@/lib/statut";
 import { creerClientAdmin } from "@/lib/supabase/admin";
 import { redis } from "@/lib/limitation";
+import { qstash } from "@/lib/qstash";
 
 const controleVercel: Controle = {
   service: "Vercel",
@@ -95,4 +96,26 @@ const controleRedis: Controle = {
   },
 };
 
-export const CONTROLES: Controle[] = [controleVercel, controleIA, controleBase, controleAuth, controleRedis];
+const controleQStash: Controle = {
+  service: "Upstash QStash",
+  description: "File de messages des générations",
+  verifier: async () => {
+    if (!process.env.QSTASH_URL || !process.env.QSTASH_TOKEN) {
+      throw new Error("Variables QSTASH_URL ou QSTASH_TOKEN manquantes");
+    }
+
+    if (!process.env.APP_URL) {
+      throw new Error("Variable APP_URL manquante : QStash ne saurait pas où livrer les messages");
+    }
+
+    if (!process.env.QSTASH_CURRENT_SIGNING_KEY || !process.env.QSTASH_NEXT_SIGNING_KEY) {
+      throw new Error("Clés de signature manquantes : le worker refuserait tous les messages");
+    }
+
+    await qstash.schedules.list();
+
+    return `Service joignable · Destination : ${process.env.APP_URL}`;
+  },
+};
+
+export const CONTROLES: Controle[] = [controleVercel, controleIA, controleBase, controleAuth, controleRedis, controleQStash];

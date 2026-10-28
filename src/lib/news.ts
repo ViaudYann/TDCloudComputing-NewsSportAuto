@@ -6,6 +6,8 @@ export type News = {
   message_erreur: string | null;
 };
 
+export type StatutNews = "en_attente" | "prete" | "erreur";
+
 export type NewsEnregistree = News & {
   id: string;
   created_at: string;
