@@ -11,7 +11,7 @@ export default function FormulaireNews() {
   const [chargement, setChargement] = useState(false);
   const [erreur, setErreur] = useState("");
   const [news, setNews] = useState<NewsEnregistree | null>(null);
-
+  const [restantes, setRestantes] = useState<number | null>(null);
   const sportsChoisis = Sports.filter((s) => s.id === sportChoisi).map((s) => s.id);
   const formulaireValide = sportsChoisis.length > 0;
 
@@ -28,6 +28,9 @@ export default function FormulaireNews() {
         body: JSON.stringify({ sports: sportsChoisis }),
       });
       const donnees = await reponse.json();
+
+      const entete = reponse.headers.get("X-RateLimit-Remaining");
+if (entete !== null) setRestantes(Number(entete));
 
       if (!reponse.ok) {
         setErreur(donnees.erreur ?? "Une erreur est survenue.");
@@ -73,6 +76,14 @@ export default function FormulaireNews() {
         >
           {chargement ? "Recherche des news en cours…" : "Demander les news"}
         </button>
+
+        {restantes !== null && (
+  <p className="text-sm text-gray-500">
+    {restantes > 0
+      ? `Il vous reste ${restantes} génération(s) pour l'heure en cours.`
+      : "Vous avez utilisé tout votre quota pour l'heure en cours."}
+  </p>
+)}
       </form>
 
       {erreur && (

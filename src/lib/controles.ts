@@ -1,6 +1,7 @@
 import "server-only";
 import type { Controle } from "@/lib/statut";
 import { creerClientAdmin } from "@/lib/supabase/admin";
+import { redis } from "@/lib/limitation";
 
 const controleVercel: Controle = {
   service: "Vercel",
@@ -79,4 +80,19 @@ const controleAuth: Controle = {
   },
 };
 
-export const CONTROLES: Controle[] = [controleVercel, controleIA, controleBase, controleAuth];
+const controleRedis: Controle = {
+  service: "Upstash Redis",
+  description: "Limitation du nombre de générations",
+  verifier: async () => {
+    const reponse = await redis.ping();
+
+    if (reponse !== "PONG") {
+      throw new Error(`Réponse inattendue : ${reponse}`);
+    }
+
+    const nombreCles = await redis.dbsize();
+    return `Base joignable · ${nombreCles} clé(s) en mémoire`;
+  },
+};
+
+export const CONTROLES: Controle[] = [controleVercel, controleIA, controleBase, controleAuth, controleRedis];
