@@ -118,4 +118,34 @@ const controleQStash: Controle = {
   },
 };
 
-export const CONTROLES: Controle[] = [controleVercel, controleIA, controleBase, controleAuth, controleRedis, controleQStash];
+const controleEmail: Controle = {
+  service: "Resend",
+  description: "Envoi des notifications par e-mail",
+  verifier: async () => {
+    const cle = process.env.RESEND_API_KEY;
+    if (!cle) {
+      throw new Error("Variable RESEND_API_KEY manquante");
+    }
+
+    const reponse = await fetch("https://api.resend.com/domains", {
+      headers: { Authorization: `Bearer ${cle}` },
+      cache: "no-store",
+    });
+
+    if (reponse.ok) {
+      return "Clé valide (accès complet : préférez une clé limitée à l'envoi)";
+    }
+
+    const corps = await reponse.json().catch(() => ({}));
+
+    // Une clé limitée à l'envoi est reconnue par Resend, mais refusée sur cette route :
+    // c'est la preuve qu'elle est valide, avec le minimum de droits
+    if (corps.name === "restricted_api_key") {
+      return "Clé valide, limitée à l'envoi d'e-mails";
+    }
+
+    throw new Error(corps.message ?? `L'API a répondu avec le statut ${reponse.status}`);
+  },
+};
+
+export const CONTROLES: Controle[] = [controleVercel, controleIA, controleBase, controleAuth, controleRedis, controleQStash, controleEmail];
