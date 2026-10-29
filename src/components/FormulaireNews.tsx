@@ -2,22 +2,21 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import AffichageNews from "@/components/AffichageNews";
+import ParticleButton from "@/components/kokonutui/particle-button";
 import { Sports } from "@/lib/sports";
 import type { NewsEnregistree } from "@/lib/news";
 
 export default function FormulaireNews() {
   const [sportChoisi, setSportChoisi] = useState("");
-  const [chargement, setChargement] = useState(false);
   const [erreur, setErreur] = useState("");
   const [news, setNews] = useState<NewsEnregistree | null>(null);
-  const [restantes, setRestantes] = useState<number | null>(null);
+
   const sportsChoisis = Sports.filter((s) => s.id === sportChoisi).map((s) => s.id);
   const formulaireValide = sportsChoisis.length > 0;
 
-  async function envoyer(e: React.FormEvent) {
-    e.preventDefault();
-    setChargement(true);
+  // Renvoie une promesse : le ParticleButton affiche l'attente, puis le succès
+  // ou l'erreur selon qu'elle est résolue ou rejetée.
+  async function envoyer() {
     setErreur("");
     setNews(null);
 
@@ -29,79 +28,77 @@ export default function FormulaireNews() {
       });
       const donnees = await reponse.json();
 
-      const entete = reponse.headers.get("X-RateLimit-Remaining");
-if (entete !== null) setRestantes(Number(entete));
-
       if (!reponse.ok) {
-        setErreur(donnees.erreur ?? "Une erreur est survenue.");
-        return;
+        throw new Error(donnees.erreur ?? "Une erreur est survenue.");
       }
 
       setNews(donnees);
       setSportChoisi("");
-    } catch {
-      setErreur("Impossible de contacter le serveur.");
-    } finally {
-      setChargement(false);
+    } catch (e) {
+      setErreur(
+        e instanceof TypeError
+          ? "Impossible de contacter le serveur."
+          : (e as Error).message
+      );
+      throw e;
     }
   }
 
   return (
-    <div className="mt-6">
-      <form onSubmit={envoyer} className="flex flex-col gap-4">
-        <fieldset className="rounded border p-4">
-          <legend className="font-medium">Discipline</legend>
+    <div>
+      <fieldset>
+        <legend className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+          Discipline
+        </legend>
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
           {Sports.map((s) => (
-            <label key={s.id} className="flex items-center gap-2">
+            <label key={s.id} className="cursor-pointer">
               <input
                 type="radio"
                 name="sport"
                 value={s.id}
                 checked={sportChoisi === s.id}
                 onChange={(e) => setSportChoisi(e.target.value)}
+                className="peer sr-only"
               />
-              {s.label}
+              <span className="flex h-full items-center justify-center rounded-xl border border-zinc-200 px-4 py-3 text-center text-sm font-medium transition-colors hover:border-zinc-400 peer-checked:border-orange-500 peer-checked:bg-orange-500 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-orange-500 peer-focus-visible:ring-offset-2 dark:border-zinc-800 dark:hover:border-zinc-600">
+                {s.label}
+              </span>
             </label>
           ))}
-        </fieldset>
+        </div>
+      </fieldset>
 
-        <p className={`text-sm ${formulaireValide ? "text-gray-500" : "text-red-600"}`}>
-          {formulaireValide ? "1 discipline sélectionnée" : "Aucune discipline sélectionnée"}
-        </p>
-
-        <button
-          type="submit"
-          disabled={!formulaireValide || chargement}
-          className="rounded bg-blue-600 px-4 py-2 font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+      <div className="mt-6 flex flex-wrap items-center gap-4">
+        <ParticleButton
+          onClick={envoyer}
+          disabled={!formulaireValide}
+          pendingLabel="Recherche en cours"
+          successLabel="Demande envoyée"
+          errorLabel="Réessayer"
+          className="h-11 rounded-full bg-orange-500 px-6 text-white hover:bg-orange-600 disabled:opacity-40"
         >
-          {chargement ? "Recherche des news en cours…" : "Demander les news"}
-        </button>
-
-        {restantes !== null && (
-  <p className="text-sm text-gray-500">
-    {restantes > 0
-      ? `Il vous reste ${restantes} génération(s) pour l'heure en cours.`
-      : "Vous avez utilisé tout votre quota pour l'heure en cours."}
-  </p>
-)}
-      </form>
+          Demander les news
+        </ParticleButton>
+        {!formulaireValide && (
+          <p className="text-sm text-zinc-500">Choisissez une discipline pour continuer.</p>
+        )}
+      </div>
 
       {erreur && (
-        <p className="mt-4 rounded border border-red-300 bg-red-50 p-3 text-red-700">
+        <p className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
           {erreur}
         </p>
       )}
 
       {news && (
-        <>
-          <p className="mt-6 rounded border border-green-300 bg-green-50 p-3 text-green-800">
-            News enregistrée.{" "}
-            <Link href={`/news/${news.id}`} className="font-medium underline">
-              Retrouver cette news
-            </Link>
-          </p>
-          <AffichageNews news={news} />
-        </>
+        <p className="mt-6 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-300">
+          Demande enregistrée, la synthèse est en cours de génération. Vous recevrez un
+          e-mail dès qu’elle sera prête.{" "}
+          <Link href={`/news/${news.id}`} className="font-medium underline">
+            Suivre cette news
+          </Link>
+        </p>
       )}
     </div>
   );

@@ -1,68 +1,71 @@
 import Link from "next/link";
-import { Sports } from "@/lib/sports";
 import { creerClientServeur } from "@/lib/supabase/server";
+import { Sports } from "@/lib/sports";
 
 export const dynamic = "force-dynamic";
-
-const LIBELLE_STATUT = {
-  en_cours: { texte: "En cours", couleur: "text-yellow-700" },
-  succes: { texte: "Reçue", couleur: "text-green-700" },
-  erreur: { texte: "Erreur", couleur: "text-red-700" },
-} as const;
 
 export default async function ListeNews() {
   const supabase = await creerClientServeur();
   const { data: news, error } = await supabase
     .from("news_sport_meca")
-    .select("id, sport_meca, date_creation, statut")
+    .select("id, sport_meca, synthese, date_creation, statut")
     .order("date_creation", { ascending: false });
 
   return (
-    <main className="mx-auto max-w-2xl p-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Mes news</h1>
-        <Link href="/" className="rounded bg-blue-600 px-4 py-2 text-white">
+    <main className="mx-auto max-w-5xl px-6 py-16">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-widest text-orange-600">
+            Historique
+          </p>
+          <h1 className="mt-2 text-4xl font-semibold tracking-tight sm:text-5xl">Mes news</h1>
+        </div>
+        <Link
+          href="/"
+          className="rounded-full bg-orange-500 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-orange-600"
+        >
           Nouvelle demande
         </Link>
       </div>
 
-      {error && (
-        <p className="mt-6 text-red-700">Impossible de charger les news.</p>
-      )}
+      {error && <p className="mt-10 text-red-700">Impossible de charger les news.</p>}
 
       {news && news.length === 0 && (
-        <p className="mt-6 text-gray-600">Aucune news pour l’instant.</p>
+        <p className="mt-10 text-zinc-500">Aucune news pour l’instant.</p>
       )}
 
-      <ul className="mt-6 flex flex-col gap-3">
+      <ul className="mt-10 grid gap-4 sm:grid-cols-2">
         {news?.map((n) => {
           const label = Sports.find((s) => s.id === n.sport_meca)?.label ?? n.sport_meca;
-          const statut = LIBELLE_STATUT[n.statut as keyof typeof LIBELLE_STATUT];
 
           return (
             <li key={n.id}>
               <Link
                 href={`/news/${n.id}`}
-                className="block rounded border p-4 hover:bg-gray-50"
+                className="flex h-full flex-col rounded-2xl border border-zinc-200 p-6 transition-colors hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-600"
               >
-                <p className="font-medium">
-  {label}
-  {n.statut !== "succes" && (
-    <span
-      className={`ml-2 rounded px-2 py-0.5 text-xs ${
-        n.statut === "en_cours"
-          ? "bg-yellow-100 text-yellow-800"
-          : "bg-red-100 text-red-800"
-      }`}
-    >
-      {n.statut === "en_cours" ? "En cours de génération" : "Échec"}
-    </span>
-  )}
-</p>
-                <p className="text-sm text-gray-500">
-                  {new Date(n.date_creation).toLocaleDateString("fr-FR")}
-                  {statut && <span className={`ml-2 ${statut.couleur}`}>{statut.texte}</span>}
-                </p>
+                <div className="flex items-center justify-between gap-2 text-xs text-zinc-500">
+                  <span className="uppercase tracking-widest">
+                    {new Date(n.date_creation).toLocaleDateString("fr-FR")}
+                  </span>
+                  {n.statut !== "succes" && (
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 font-medium ${
+                        n.statut === "en_cours"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {n.statut === "en_cours" ? "En cours de génération" : "Échec"}
+                    </span>
+                  )}
+                </div>
+                <h2 className="mt-3 text-2xl font-semibold tracking-tight">{label}</h2>
+                {n.synthese && (
+                  <p className="mt-2 line-clamp-3 text-sm text-zinc-600 dark:text-zinc-400">
+                    {n.synthese}
+                  </p>
+                )}
               </Link>
             </li>
           );

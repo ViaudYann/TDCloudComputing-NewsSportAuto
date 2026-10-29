@@ -4,6 +4,8 @@ import AffichageNews from "@/components/AffichageNews";
 import type { NewsEnregistree } from "@/lib/news";
 import { Sports } from "@/lib/sports";
 import { creerClientServeur } from "@/lib/supabase/server";
+import AITextLoading from "@/components/kokonutui/ai-text-loading";
+import RafraichissementAuto from "@/components/RafraichissementAuto";
 
 export default async function DetailNews({
   params,
@@ -37,11 +39,23 @@ export default async function DetailNews({
       {news.statut === "succes" && <AffichageNews news={news} />}
 
       {news.statut === "en_cours" && (
-        <p className="mt-6 rounded border border-yellow-300 bg-yellow-50 p-3 text-yellow-800">
-          La news « {label} » est en cours de génération. Rechargez la page dans
-          quelques instants.
-        </p>
-      )}
+  <div className="mt-6 rounded-2xl border border-zinc-200 p-8 dark:border-zinc-800">
+    <AITextLoading
+      texts={[
+        "Recherche des résultats…",
+        "Lecture des classements…",
+        "Rédaction de la synthèse…",
+      ]}
+      interval={2200}
+      label={`Génération de la news « ${label} » en cours`}
+      className="justify-start text-xl font-semibold"
+    />
+    <p className="mt-3 text-sm text-zinc-500">
+      La page se met à jour automatiquement dès que la synthèse est prête.
+    </p>
+    <RafraichissementAuto />
+  </div>
+)}
 
       {news.statut === "erreur" && (
         <p className="mt-6 rounded border border-red-300 bg-red-50 p-3 text-red-700">
